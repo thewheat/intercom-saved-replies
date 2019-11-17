@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Intercom Saved Replies</title>
+    <meta name="viewport" content="width=device-width">
+    <style>
+        .saved_reply {
+            border: 1px solid black;
+            margin-bottom: 1em;
+            padding: 1em;
+        }
+
+        a.button {
+            background-color: #2D6EF6;
+            border: 1px solid #2D6EF6;
+            color: #fff;
+            padding: 0.25em;
+            line-height: 2em;
+        }
+        .card {
+            border: 1px solid #2D6EF6;
+            padding: 0.5em;
+            display: inline-block;
+        }
+        .no_underline {
+            text-decoration: none;
+        }
+        .underline {
+            text-decoration: underline;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 0;
+        }
+
+        #json {
+            width: 90%;
+            height: 5em;
+        }
+        #process {
+            -webkit-appearance: none;
+            margin-top: 0.4em;
+            display: block;            
+            border-radius: 4px;
+            font-size: 1.5em;
+            margin-bottom: 2em;
+        }
+        #process:active {
+            -webkit-appearance: none;
+            background: linear-gradient(#999, #555);
+        }
+
+        #overlay {
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            height: 100%;
+            width: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            text-align: center;
+            padding-top: 2em
+        }
+        #overlay #dismiss{
+            font-family: monospace;
+            background-color: #fff;
+            text-decoration: none;
+            border-radius: 2em;
+            text-align: center;
+            font-size: 2em;
+            vertical-align: center;
+            height: 1.1em;
+            width: 1em;
+            color: #000;
+            position: fixed;
+            top: 0.5em;
+            right: 0.5em;
+            padding: 3px 7px 7px;
+        }
+        #overlay.show {
+            display: block;
+        }
+        img {
+            max-width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <h1>View All Intercom Saved Replies</h1>
+        <ol>
+            <li><a class="image overlay" href="./img/get_app_id.png">Find your Intercom Workspace/App ID</a> and paste it here: 
+                <input id="app_id_or_url" type="text" placeholder="Your Intercom ID">
+            </li>
+            <li>Click <a id="saved_reply_link" href="" target="_blank">here</a> to show all saved replies for your workspace</li>
+            <li><a class="image overlay" href="./img/select_all.png">Select All</a> the text, <a class="image overlay" href="./img/copy.png">copy it</a> and <a class="image overlay" href="./img/paste.png">paste it</a> in the box below
+            </li>
+            <li>Click the "Process Saved Replies" button</li>
+        </ol>
+        
+        <textarea id="json" placeholder="Paste raw text from generated link above here"></textarea>
+        <input id="process" type="button" value="Process Saved Replies">
+    </div>
+    <div id="output">
+
+    </div>
+    <div id="overlay">
+        <a id="dismiss" href="#" class="dismiss">X</a>
+        <img src="">
+    </div>
+    <script type="text/javascript">
+
+    function getInput() {
+        return document.getElementById("json").value;
+    }
+    function clearOutput() {
+        return document.getElementById("output").innerHTML = "";
+    }
+    function addSavedReply(item) {
+        const title = item.name;
+        const id = item.id;
+        const blocks = item.blocks;
+
+        var child = document.createElement("div");
+        child.classList.add("saved_reply");
+        
+        var titleElement = document.createElement("h1");
+        titleElement.innerHTML = title + " (ID: " + id + ")";
+
+        var contentElement = document.createElement("div");
+        blocks.forEach(function (block) {
+            var contents = "";
+            switch (block.type) {
+                case "paragraph":
+                    element = "p";
+                    break;
+                case "heading":
+                    element = "h1";
+                    break;
+                case "subheading":
+                    element = "h3";
+                    break;
+                case "code":
+                    element = "pre";
+                    break;
+                case "image":
+                    element = "img";
+                    break;
+                case "link":
+                    element = "div";
+                    break;
+                case "button":
+                    element = "div";
+                    break;
+                case "video":
+                    element = "iframe";
+                    break;
+                case "orderedList":
+                    element = "ol";
+                    break;
+                case "unorderedList":
+                case "attachmentList":
+                    element = "ul";
+                    break;
+                case "messengerCard":
+                    element = "div";
+                    break;
+                default:
+                    element = "div";
+                    contents = "ERROR!: " + JSON.stringify(block);
+                    break;
+            }
+            
+            var blockElement = document.createElement(element);
+            switch (block.type) {
+                case "image":
+                    blockElement.src = block.url;
+                    break;
+                case "link":
+                    var linkTitle = document.createElement("a");
+                    var linkDescription = document.createElement("div");
+                    linkTitle.href = block.url;
+                    linkTitle.innerHTML = block.title;
+                    linkDescription.innerHTML = block.description;
+                    blockElement.appendChild(linkTitle);
+                    blockElement.appendChild(linkDescription);
+                    break;
+                case "button":
+                    var linkTitle = document.createElement("a");
+                    linkTitle.classList.add("button");
+                    linkTitle.href = block.linkUrl;
+                    linkTitle.innerHTML = block.text;
+                    blockElement.appendChild(linkTitle);
+                    break;
+                case "video":
+                    var tmp = document.createElement("a");
+                    tmp.innerHTML = block.text;
+                    blockElement.src = tmp.innerText;
+                    blockElement.width = "800px";
+                    blockElement.height = "450px";
+                    break;
+                case "messengerCard":
+                    var blockInnerElement = document.createElement("div");
+                    blockInnerElement.classList.add("card");
+                    block.canvas.content.components.forEach(function (component) {
+                        var componentElement = document.createElement("div");
+                        switch(component.type)
+                        {
+                            case "list":
+                                component.items.forEach(function (item) {
+                                    var itemElement = document.createElement("div");
+                                    switch(item.type)
+                                    {
+                                        case "item":
+                                            var link = document.createElement("a");
+                                            link.classList.add("no_underline");
+                                            var linkTitle = document.createElement("h3");
+                                            linkTitle.classList.add("underline");
+                                            var linkDescription = document.createElement("div");
+                                            link.href = item.action.url;
+                                            linkTitle.innerHTML = item.title;
+                                            linkDescription.innerHTML = item.subtitle;
+                                            link.appendChild(linkTitle);
+                                            link.appendChild(linkDescription);
+                                            itemElement.appendChild(link);
+                                            break;
+                                        default: 
+                                            element = "div";
+                                            componentElement.innerHTML = "ERROR! Unknown item in component in messengerCard component list: " + JSON.stringify(block);
+
+                                            break;
+                                    }
+                                    componentElement.appendChild(itemElement)
+                                });
+                                break;
+                            default:
+                                element = "div";
+                                componentElement.innerHTML = "ERROR! Unknown component in messengerCard component list: " + JSON.stringify(component);
+                                break;
+                        }
+                        blockInnerElement.appendChild(componentElement);
+                    });
+                    blockElement.appendChild(blockInnerElement);
+                    break;
+                case "attachmentList":
+                case "orderedList":
+                case "unorderedList":
+                    (block.attachments || block.items).forEach(function (item) {
+                        var itemElement = document.createElement("li");
+                        if(block.type == "attachmentList"){
+                            var aElement = document.createElement("a");
+                            aElement.innerText = item.name;
+                            aElement.href = item.url;
+                            itemElement.appendChild(aElement);
+                        }
+                        else{
+                            itemElement.innerHTML = item;
+                        }
+                        blockElement.appendChild(itemElement);
+                    });
+                    break;
+                default:
+                    if (contents == "") contents = block.text;
+                    blockElement.innerHTML = contents;
+                    break;
+            }
+
+            contentElement.appendChild(blockElement);
+        });
+        child.appendChild(titleElement);
+        child.appendChild(contentElement);
+        return document.getElementById("output").appendChild(child);
+    }
+    document.getElementById("process").onclick = function () {
+        clearOutput();
+        eval("var saved_replies = " + getInput());
+        saved_replies.saved_replies.forEach(function (i) {
+            addSavedReply(i);
+        });
+    }
+
+    // 
+    const app_id_or_url = document.getElementById('app_id_or_url');
+    const saved_reply_link = document.getElementById('saved_reply_link');
+    const overlay = document.getElementById('overlay');
+
+    function updateLink() {
+        saved_reply_link.href = "https://app.intercom.io/ember/saved_replies?app_id=" + (app_id_or_url.value || "YOUR_APP_ID");
+    }
+
+    app_id_or_url.addEventListener('keyup', updateLink);
+    app_id_or_url.addEventListener('change', updateLink);
+
+    function showOverlay(src) {
+        overlay.classList.add("show");
+        overlay.querySelectorAll("img").forEach(x => {
+            x.src = src
+        });
+        window.addEventListener('keyup', overlayKeyboaordHandler);
+    }
+
+    function dismissOverlay() {
+        overlay.classList.remove("show");
+        window.removeEventListener('keyup', overlayKeyboaordHandler);
+    }
+
+    function overlayKeyboaordHandler(e) {
+        if (e.keyCode == 27) dismissOverlay();
+    }
+
+    document.querySelectorAll(".image.overlay").forEach(x => {
+        x.onclick = function (e) {
+            e.preventDefault();
+            showOverlay(x.href);
+        }
+    });
+    overlay.querySelectorAll(".dismiss").forEach(x => {
+        x.onclick = function (e) {
+            dismissOverlay();
+        }
+    });
+    overlay.addEventListener('click', dismissOverlay);
+    </script>
+</body>
+</html>
